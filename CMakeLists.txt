@@ -10,3 +10,6 @@ add_definitions(-D_DEBUG)
 add_executable(vrelay vrelay.c)
 target_link_libraries(vrelay pthread)
 endif(NOT MSVC)
+
+add_executable(sha1sum sha1sum.c)
+set_target_properties(sha1sum PROPERTIES COMPILE_FLAGS "-D_TEST")
