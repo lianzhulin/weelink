@@ -92,6 +92,19 @@ int _take(unsigned int hashID)
 }
 
 typedef int (*cb_t)(int);
+typedef struct {
+    void *cb, *next;
+}cbc_t;
+
+static cbc_t req_cbchain;
+
+void _append(cbc_t *head, void *cb)
+{
+    cbc_t *p = head;
+    while(p && p->next) p = p->next;
+    p->next = (void *)malloc(sizeof(cbc_t));
+    ((cbc_t *)(p->next))->cb = cb;((cbc_t *)(p->next))->next = 0;
+}
 
 int _listen(int port, cb_t cb)
 {
@@ -157,7 +170,7 @@ int _bind(const char *host, int port)
     host_addr.sin_addr.s_addr = inet_addr(host);
     int ret = connect(sockfd, (struct sockaddr *)&host_addr, sizeof(host_addr));
     if (ret < 0) {
-        perror("connect");return ret;
+        perror("connect");close(sockfd);return ret;
     }
     printf("<%d> (%d) Connected %s:%d\n", getpid(), sockfd, (char *)inet_ntoa(host_addr.sin_addr),ntohs(host_addr.sin_port));
     return sockfd;
@@ -183,8 +196,14 @@ int _ping(int sockfd)
 
     if (*(int *)buf == *(int *)"PING") {
         _fill(_hash(&buf[4], &buf[ret]), sockfd);
+        return 0;//default
     }
-    else close(sockfd);
+    cbc_t *p = &req_cbchain;
+    while(p) {
+        if (p->cb && 0 == ((int (*)(int, char*, int))(p->cb))(sockfd, buf, ret)) return 0;
+        p = p->next;
+    }
+    close(sockfd);
     return 0;
 }
 
@@ -293,6 +312,13 @@ int main(int argc, char *argv[])
     setpgrp();
 
     _slots_init();
+
+    //config something
+//#define _SSH    1
+#if defined(_SSH)
+    int _ssh(int sockfd, char *buf, int len);
+    _append(&req_cbchain, _ssh);
+#endif
 
     pthread_t thd;
     void * _waitforhole(void *arg);
@@ -426,3 +452,26 @@ void dump(const char *buf, int len)
     printf("\n");
 #endif
 }
+
+#if defined(_SSH)
+int _ssh(int sockfd, char *buf, int len)
+{
+    printf("%s\n", __FUNCTION__);
+    if (*(int *)buf == *(int *)"SSH-2.0-SecureCRT") {
+        int socks[2] = {sockfd, _bind("127.0.0.1", 22)};//shake sock hands
+        if (socks[1] <= 0) {
+            printf("Not Found 22\n");
+        }
+        else {
+            if (0 == fork()) {//child
+                send(socks[1], buf, len, 0);//relay first package
+                _rproxy(socks);
+                exit(0);
+            }
+            close(socks[1]);
+        }
+        close(socks[0]);return 0;//close all sockets in parent process before return
+    }
+    else return 1;
+}
+#endif
