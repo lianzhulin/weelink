@@ -13,3 +13,5 @@ endif(NOT MSVC)
 
 add_executable(sha1sum sha1sum.c)
 set_target_properties(sha1sum PROPERTIES COMPILE_FLAGS "-D_TEST")
+
+add_executable(p2pget p2pget.c dump.c)
