@@ -1,0 +1,4 @@
+Windows编译环境配置说明
+1下载安装好MSVC和CMAKE工具
+@call "C:\Program Files (x86)\Microsoft Visual Studio 10.0\VC\vcvarsall.bat
+@set PATH=D:\cmake-2.8.7-win32-x86\bin;%PATH%
